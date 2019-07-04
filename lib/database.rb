@@ -10,34 +10,34 @@ class Database
   # Creates a table for award selections
   def create_award_selection_table
     statement = <<-END_SQL.gsub(/\s+/, " ").strip
-    CREATE TABLE IF NOT EXISTS state_energy_program_competitive_award_selections (
+    CREATE TABLE IF NOT EXISTS state_energy_program_competitive_award_selection (
       id INT AUTO_INCREMENT,
       recipient VARCHAR(255),
       doe_investment INT,
-      project_description VARCHAR (500),
-      potential_impacts_goals VARCHAR (500),
+      project_description VARCHAR (1000),
+      potential_impacts_goals VARCHAR (1000),
       scrape_dev_name VARCHAR (100),
       data_source_url VARCHAR (255),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (id)
-    )
+    ) CHARACTER SET UTF8
     END_SQL
     @client.query statement
   end
 
   # Creates a table for key partners
-  def create_key_partners_table()
+  def create_key_partner_table
     statement = <<-END_SQL.gsub(/\s+/, " ").strip
-    CREATE TABLE IF NOT EXISTS #{table_name} (
+    CREATE TABLE IF NOT EXISTS key_partner (
       id INT AUTO_INCREMENT,
       competitive_award_selection_id INT,
-      key_partner VARCHAR (255),
+      key_partner VARCHAR (500),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       PRIMARY KEY (id),
-      FOREIGN KEY (competitive_award_selection_id) REFERENCES state_energy_program_competitive_award_selections(id)
-    )
+      FOREIGN KEY (competitive_award_selection_id) REFERENCES state_energy_program_competitive_award_selection(id)
+    ) CHARACTER SET UTF8
     END_SQL
     @client.query statement
   end
