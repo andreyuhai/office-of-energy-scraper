@@ -1,15 +1,17 @@
+# frozen_string_literal: true
+
 require 'mysql2'
 
 class Database
   attr_reader :client
 
   def initialize(db_username, db_password, db_name, host = 'localhost')
-    @client = Mysql2::Client.new(username: db_username, password: db_password, database: db_name, host: db_host)
+    @client = Mysql2::Client.new(username: db_username, password: db_password, database: db_name, host: host)
   end
 
   # Creates a table for award selections
   def create_award_selection_table
-    statement = <<-END_SQL.gsub(/\s+/, " ").strip
+    statement = <<-END_SQL.gsub(/\s+/, ' ').strip
     CREATE TABLE IF NOT EXISTS state_energy_program_competitive_award_selection (
       id INT AUTO_INCREMENT,
       recipient VARCHAR(255),
@@ -28,7 +30,7 @@ class Database
 
   # Creates a table for key partners
   def create_key_partner_table
-    statement = <<-END_SQL.gsub(/\s+/, " ").strip
+    statement = <<-END_SQL.gsub(/\s+/, ' ').strip
     CREATE TABLE IF NOT EXISTS key_partner (
       id INT AUTO_INCREMENT,
       competitive_award_selection_id INT,
@@ -46,14 +48,25 @@ class Database
     table_name = params.fetch(:table_name)
     query_hash = params.fetch(:query)
     column_names = query_hash.keys.join(',')
-    values = query_hash.values.map { |value| value = "'#{value}'"}.join(',')
+    values = query_hash.values.map do |value|
+      value = escape_single_quotes(value).strip if value.instance_of? String
+      value = if value == 'NULL'
+                value
+              else
+                "'#{value}'"
+              end
+    end.join(',')
 
     statement = <<-END_SQL.gsub(/\s+/, ' ').strip
     INSERT INTO #{table_name}(#{column_names})
     VALUES(#{values})
     END_SQL
 
-    @client.query statement
+    begin
+      @client.query statement
+    rescue Mysql2::Error => e
+      binding.pry
+    end
   end
 
   def exists?(**params)
@@ -67,8 +80,16 @@ class Database
   def select_from_table(**params)
     table_name = params.fetch(:table_name)
     column_names = params[:select].nil? ? '*' : params[:select]
-    where_statement = params[:where].nil? ? '' : params[:where]
     order_by = params[:order_by].nil? ? '' : params[:order_by]
+    where_statement = if params[:where].nil?
+                        ''
+                      else
+                        where_array = []
+                        params[:where].each do |key, value|
+                          where_array << "#{key.to_s} = '#{escape_single_quotes(value)}'"
+                        end
+                        where_array.join(" and ")
+                      end
 
     statement = <<-END_SQL.gsub(/\s+/, ' ').strip
     SELECT #{column_names} FROM #{table_name}
@@ -78,5 +99,9 @@ class Database
     statement += " ORDER BY #{order_by}" unless order_by.empty?
 
     @client.query(statement, symbolize_keys: true)
+  end
+
+  def escape_single_quotes(string)
+    string.gsub("'", "\\\\'")
   end
 end
