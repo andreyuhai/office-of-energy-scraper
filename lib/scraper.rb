@@ -1,18 +1,17 @@
 require 'mechanize'
 
 class Scraper
-  attr_accessor :agent, :scrape_dev
+  attr_accessor :agent
 
-  def initialize(scrape_dev)
+  def initialize
     @agent = Mechanize.new
-    @scrape_dev = scrape_dev
   end
 
   def navigate_to(url)
     @agent.get url
   end
 
-  def areas_of_interest_table(response_body)
+  def areas_of_interest_tables(response_body)
     parsed_response_body = Nokogiri::HTML(response_body)
     parsed_response_body.xpath("//div[@id='content']//table")
   end
@@ -29,7 +28,10 @@ class Scraper
 
   # @param [Nokogiri::XML::Nodeset] table_headers
   def index_of_doe_investment(table_headers)
-    table_headers.index { |table_header| table_header.text.upcase == 'DOE INVESTMENT' || table_header.text.upcase == 'FUNDING' }
+    table_headers.index do |table_header|
+      table_header.text.upcase == 'DOE INVESTMENT' || table_header.text.upcase
+                                                                  .include?('FUNDING')
+    end
   end
 
   # @param [Nokogiri::XML::Nodeset] table_headers
@@ -40,14 +42,14 @@ class Scraper
   # @param [Nokogiri::XML::Element] table
   # @return [Nokogiri::XML::Nodeset] table_headers
   def table_headers(table)
-    table.xpath(".//th")
+    table.xpath('.//th')
   end
 
   # Returns table rows from a given table without the header row
   # @param [Nokogiri::XML::Element] table
   # @return [Array] table_rows
   def table_rows(table)
-    table.xpath(".//tr").drop 1
+    table.xpath('.//tr').drop 1
   end
 
   def extract_recipient(table_cell)
@@ -59,9 +61,12 @@ class Scraper
   # @param [Nokogiri::XML::Element] table_cell
   # @return [Array] key partners
   def extract_key_partners(table_cell)
-    table_cell.text.split ';'
+    if table_cell.text.include? ';'
+      table_cell.text.split ';'
+    else
+      table_cell.text.split ','
+    end
   end
-
 
   def extract_doe_investment(table_cell)
     match_result = table_cell.text.match /(?<=Total Cost: \$).*/
@@ -70,7 +75,7 @@ class Scraper
 
   def extract_project_description(table_cell)
     project_description = ''
-    paragraphs = table_cell.xpath(".//p")
+    paragraphs = table_cell.xpath('.//p')
 
     paragraphs.each do |paragraph|
       next if paragraph.text.upcase.include?('PROJECT IMPACT') ||
@@ -83,9 +88,16 @@ class Scraper
     project_description
   end
 
-  def scrape_row(table_row, **column_indexes)
+  def extract_potential_impacts_and_goals(table_cell)
+    if table_cell.xpath(".//li").empty?
+      'NULL'
+    else
+      table_cell.xpath(".//li").text
+    end
+  end
 
-    cells = table_row.xpath(".//td")
+  def scrape_row(table_row, **column_indexes)
+    cells = table_row.xpath('.//td')
 
     recipient_index = column_indexes.fetch(:recipient)
     key_partners_index = column_indexes.fetch(:key_partners)
